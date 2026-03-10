@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}Create Proposal{% endblock %}
+{% block content %}
+<h2 class="mb-4">Create Proposal</h2>
+<form method="post">
+  <div class="row">
+    <div class="col-md-6">
+      <div class="mb-3">
+        <label class="form-label" for="title">Title</label>
+        <input type="text" class="form-control" id="title" name="title" required>
+      </div>
+      <div class="mb-3">
+        <label class="form-label" for="customer_name">Customer Name</label>
+        <input type="text" class="form-control" id="customer_name" name="customer_name" required>
+      </div>
+      <div class="mb-3">
+        <label class="form-label" for="partner_name">Partner Name (optional)</label>
+        <input type="text" class="form-control" id="partner_name" name="partner_name">
+      </div>
+      <div class="mb-3">
+        <label class="form-label" for="industry">Industry</label>
+        <input type="text" class="form-control" id="industry" name="industry">
+      </div>
+    </div>
+  </div>
+  <button type="submit" class="btn btn-primary">Create</button>
+  <a href="{{ url_for('proposals.dashboard') }}" class="btn btn-link">Cancel</a>
+{% endblock %}
+

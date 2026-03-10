@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+{% block title %}Edit Proposal{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h2>Edit Proposal</h2>
+  <div>
+    <form method="post" action="{{ url_for('proposals.clone', proposal_id=proposal.id) }}" class="d-inline">
+      <button class="btn btn-outline-secondary btn-sm" type="submit">Clone</button>
+    </form>
+    {% if current_user.is_admin() %}
+      {% if proposal.status == 'draft' %}
+        <form method="post" action="{{ url_for('proposals.lock', proposal_id=proposal.id) }}" class="d-inline">
+          <button class="btn btn-outline-danger btn-sm" type="submit">Lock</button>
+        </form>
+      {% else %}
+        <form method="post" action="{{ url_for('proposals.unlock', proposal_id=proposal.id) }}" class="d-inline">
+          <button class="btn btn-outline-warning btn-sm" type="submit">Unlock</button>
+        </form>
+      {% endif %}
+    {% endif %}
+  </div>
+</div>
+
+<form method="post">
+  <div class="row mb-4">
+    <div class="col-md-6">
+      <div class="mb-3">
+        <label class="form-label" for="title">Title</label>
+        <input type="text" class="form-control" id="title" name="title" value="{{ proposal.title }}" required>
+      </div>
+      <div class="mb-3">
+        <label class="form-label" for="customer_name">Customer Name</label>
+        <input type="text" class="form-control" id="customer_name" name="customer_name" value="{{ proposal.customer_name }}" required>
+      </div>
+      <div class="mb-3">
+        <label class="form-label" for="partner_name">Partner Name (optional)</label>
+        <input type="text" class="form-control" id="partner_name" name="partner_name" value="{{ proposal.partner_name or '' }}">
+      </div>
+      <div class="mb-3">
+        <label class="form-label" for="industry">Industry</label>
+        <input type="text" class="form-control" id="industry" name="industry" value="{{ proposal.industry or '' }}">
+      </div>
+    </div>
+  </div>
+
+  <h4 class="mb-2">Sections</h4>
+  <p class="text-muted">Drag and drop to reorder sections. Toggle to enable/disable.</p>
+  <div id="sections-list">
+    {% for section in sections %}
+      <div class="card mb-2" data-section-id="{{ section.id }}">
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <div class="form-check form-switch">
+              <input class="form-check-input" type="checkbox" id="section_enabled_{{ section.id }}" name="section_enabled_{{ section.id }}" {% if section.is_enabled %}checked{% endif %}>
+              <label class="form-check-label" for="section_enabled_{{ section.id }}">{{ section.section_key }}</label>
+            </div>
+            <span class="text-muted small">Drag handle</span>
+          </div>
+          <input type="hidden" name="section_id" value="{{ section.id }}">
+          <div class="mb-2">
+            <label class="form-label">Section Title</label>
+            <input type="text" class="form-control" name="section_title_{{ section.id }}" value="{{ section.title }}">
+          </div>
+          <div class="mb-2">
+            <label class="form-label">Content</label>
+            <textarea id="section_content_{{ section.id }}" name="section_content_{{ section.id }}" class="d-none">{{ section.content|safe }}</textarea>
+            <div data-quill-editor data-target-textarea-id="section_content_{{ section.id }}" style="height: 200px;"></div>
+          </div>
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+
+  <div class="mt-3">
+    <button type="submit" class="btn btn-primary">Save Changes</button>
+    <a href="{{ url_for('proposals.view', proposal_id=proposal.id) }}" class="btn btn-link">Back</a>
+  </div>
+</form>
+
+<script>
+  document.addEventListener("DOMContentLoaded", function () {
+    const container = document.getElementById("sections-list");
+    new Sortable(container, {
+      animation: 150,
+      handle: ".card-body",
+      onEnd: function () {
+        // Order is derived from DOM position when form is submitted (section_id fields)
+      }
+    });
+  });
+</script>
+{% endblock %}
+

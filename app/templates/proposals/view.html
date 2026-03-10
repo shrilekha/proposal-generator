@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+{% block title %}View Proposal{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h2>{{ proposal.title }}</h2>
+  <div>
+    <a href="{{ url_for('proposals.edit', proposal_id=proposal.id) }}" class="btn btn-outline-primary btn-sm {% if proposal.status == 'locked' and not current_user.is_admin() %}disabled{% endif %}">
+      Edit
+    </a>
+    <form method="post" action="{{ url_for('proposals.clone', proposal_id=proposal.id) }}" class="d-inline">
+      <button class="btn btn-outline-secondary btn-sm" type="submit">Clone</button>
+    </form>
+    {% if current_user.is_admin() %}
+      {% if proposal.status == 'draft' %}
+        <form method="post" action="{{ url_for('proposals.lock', proposal_id=proposal.id) }}" class="d-inline">
+          <button class="btn btn-outline-danger btn-sm" type="submit">Lock</button>
+        </form>
+      {% else %}
+        <form method="post" action="{{ url_for('proposals.unlock', proposal_id=proposal.id) }}" class="d-inline">
+          <button class="btn btn-outline-warning btn-sm" type="submit">Unlock</button>
+        </form>
+      {% endif %}
+    {% endif %}
+    <form method="post" action="{{ url_for('proposals.generate', proposal_id=proposal.id) }}" class="d-inline">
+      <button class="btn btn-success btn-sm" type="submit">Generate Word</button>
+    </form>
+  </div>
+</div>
+
+<dl class="row">
+  <dt class="col-sm-3">Customer</dt>
+  <dd class="col-sm-9">{{ proposal.customer_name }}</dd>
+
+  <dt class="col-sm-3">Partner</dt>
+  <dd class="col-sm-9">{{ proposal.partner_name or '-' }}</dd>
+
+  <dt class="col-sm-3">Industry</dt>
+  <dd class="col-sm-9">{{ proposal.industry or '-' }}</dd>
+
+  <dt class="col-sm-3">Status</dt>
+  <dd class="col-sm-9">
+    {% if proposal.status == 'locked' %}
+      <span class="badge bg-secondary">Locked</span>
+    {% else %}
+      <span class="badge bg-success">Draft</span>
+    {% endif %}
+  </dd>
+</dl>
+
+<h4 class="mt-4">Sections</h4>
+{% for section in proposal.sections if section.is_enabled %}
+  <div class="mb-3">
+    <h5>{{ section.title }}</h5>
+    <div class="border rounded p-2">
+      {{ section.content|safe }}
+    </div>
+  </div>
+{% else %}
+  <p class="text-muted">No enabled sections.</p>
+{% endfor %}
+
+<h4 class="mt-4">Generated Files</h4>
+<table class="table table-sm">
+  <thead>
+    <tr>
+      <th>Version</th>
+      <th>Filename</th>
+      <th>Generated At</th>
+      <th></th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for f in proposal.generated_files %}
+      <tr>
+        <td>v{{ f.version_number }}</td>
+        <td>{{ f.filename }}</td>
+        <td>{{ f.generated_at }}</td>
+        <td class="text-end">
+          <a href="{{ url_for('proposals.download_file', file_id=f.id) }}" class="btn btn-sm btn-outline-primary">
+            Download
+          </a>
+        </td>
+      </tr>
+    {% else %}
+      <tr>
+        <td colspan="4" class="text-muted text-center">No generated files yet.</td>
+      </tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+{% endblock %}
+
