@@ -22,6 +22,7 @@
       {% endif %}
     {% endif %}
     <form method="post" action="{{ url_for('proposals.generate', proposal_id=proposal.id) }}" class="d-inline">
+      <input type="text" class="form-control form-control-sm d-inline-block w-auto ms-1" name="version_description" placeholder="Version description (e.g. initial draft, updated scope)" title="Optional: appears in Change Log">
       <button class="btn btn-success btn-sm" type="submit">Generate Word</button>
     </form>
   </div>
@@ -36,6 +37,9 @@
 
   <dt class="col-sm-3">Industry</dt>
   <dd class="col-sm-9">{{ proposal.industry or '-' }}</dd>
+
+  <dt class="col-sm-3">Engagement</dt>
+  <dd class="col-sm-9">{{ proposal.engagement_type or 'DIRECT' }} {% if proposal.engagement_type == 'PARTNER_LED' %}(Proposal to {{ proposal.partner_name }} for {{ proposal.customer_name }}){% endif %}</dd>
 
   <dt class="col-sm-3">Status</dt>
   <dd class="col-sm-9">
@@ -59,31 +63,30 @@
   <p class="text-muted">No enabled sections.</p>
 {% endfor %}
 
-<h4 class="mt-4">Generated Files</h4>
+<h4 class="mt-4">Proposal version timeline</h4>
+<p class="text-muted">Version history for Change Log in generated Word documents.</p>
 <table class="table table-sm">
   <thead>
     <tr>
-      <th>Version</th>
-      <th>Filename</th>
-      <th>Generated At</th>
+      <th>Ver</th>
+      <th>Generated</th>
+      <th>Description</th>
       <th></th>
     </tr>
   </thead>
   <tbody>
-    {% for f in proposal.generated_files %}
+    {% for f in proposal.generated_files|sort(attribute='version_number') %}
       <tr>
         <td>v{{ f.version_number }}</td>
-        <td>{{ f.filename }}</td>
-        <td>{{ f.generated_at }}</td>
+        <td>{{ f.generated_at.strftime('%d %b %Y') if f.generated_at else '-' }}</td>
+        <td>{{ f.version_description or '-' }}</td>
         <td class="text-end">
-          <a href="{{ url_for('proposals.download_file', file_id=f.id) }}" class="btn btn-sm btn-outline-primary">
-            Download
-          </a>
+          <a href="{{ url_for('proposals.download_file', file_id=f.id) }}" class="btn btn-sm btn-outline-primary">Download</a>
         </td>
       </tr>
     {% else %}
       <tr>
-        <td colspan="4" class="text-muted text-center">No generated files yet.</td>
+        <td colspan="4" class="text-muted text-center">No generated files yet. Use Generate Word to create v1.</td>
       </tr>
     {% endfor %}
   </tbody>

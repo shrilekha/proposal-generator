@@ -29,6 +29,11 @@ class User(UserMixin, db.Model):
         return self.role == "admin"
 
 
+# Engagement type: DIRECT = VuNet to customer; PARTNER_LED = VuNet via partner
+ENGAGEMENT_DIRECT = "DIRECT"
+ENGAGEMENT_PARTNER_LED = "PARTNER_LED"
+
+
 class Proposal(db.Model):
     __tablename__ = "proposals"
 
@@ -38,6 +43,7 @@ class Proposal(db.Model):
     partner_name = db.Column(db.String(255))
     industry = db.Column(db.String(255))
     status = db.Column(db.String(32), default="draft")  # draft / locked
+    engagement_type = db.Column(db.String(32), default=ENGAGEMENT_DIRECT, nullable=False)  # DIRECT | PARTNER_LED
     created_by = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(
@@ -62,6 +68,11 @@ class Proposal(db.Model):
         back_populates="proposal",
         cascade="all, delete-orphan",
         order_by="GeneratedFile.generated_at.desc()",
+    )
+    variables = db.relationship(
+        "ProposalVariable",
+        back_populates="proposal",
+        cascade="all, delete-orphan",
     )
 
 
@@ -101,6 +112,46 @@ class GeneratedFile(db.Model):
     file_path = db.Column(db.String(1024), nullable=False)
     generated_at = db.Column(db.DateTime, default=datetime.utcnow)
     version_number = db.Column(db.Integer, nullable=False, default=1)
+    version_description = db.Column(db.String(512))  # e.g. "initial draft", "updated scope"
 
     proposal = db.relationship("Proposal", back_populates="generated_files")
+
+
+class ProposalVariable(db.Model):
+    """Consulting-style proposal variables (e.g. txn_volume, commitment_tenure). Exposed in docxtpl context."""
+    __tablename__ = "proposal_variables"
+
+    id = db.Column(db.Integer, primary_key=True)
+    proposal_id = db.Column(db.Integer, db.ForeignKey("proposals.id"), nullable=False)
+    variable_key = db.Column(db.String(128), nullable=False)
+    variable_value = db.Column(db.Text)
+
+    proposal = db.relationship("Proposal", back_populates="variables")
+
+    __table_args__ = (db.UniqueConstraint("proposal_id", "variable_key", name="uq_proposal_variable"),)
+
+
+class ModuleSectionMap(db.Model):
+    """Maps module_tag to section_key. Used to auto-enable sections when modules are selected."""
+    __tablename__ = "module_section_map"
+
+    id = db.Column(db.Integer, primary_key=True)
+    module_tag = db.Column(db.String(128), nullable=False, index=True)
+    section_key = db.Column(db.String(128), nullable=False, index=True)
+
+
+class SectionTemplate(db.Model):
+    """
+    Admin-defined default sections that are copied into each new proposal
+    as a starting snapshot.
+    """
+
+    __tablename__ = "section_templates"
+
+    id = db.Column(db.Integer, primary_key=True)
+    section_key = db.Column(db.String(64), nullable=False, unique=True)
+    title = db.Column(db.String(255), nullable=False)
+    default_content = db.Column(db.Text)  # rich text HTML
+    order_index = db.Column(db.Integer, nullable=False, default=0)
+    is_default_enabled = db.Column(db.Boolean, default=True)
 

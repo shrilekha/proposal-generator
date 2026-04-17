@@ -21,6 +21,22 @@
         <label class="form-label" for="industry">Industry</label>
         <input type="text" class="form-control" id="industry" name="industry">
       </div>
+      <div class="mb-3">
+        <label class="form-label" for="engagement_type">Engagement Type</label>
+        <select class="form-select" id="engagement_type" name="engagement_type">
+          <option value="DIRECT">Direct (VuNet to customer)</option>
+          <option value="PARTNER_LED">Partner-led (VuNet via partner)</option>
+        </select>
+      </div>
+      <div class="mb-3">
+        <label class="form-label">Modules in scope (optional – enables matching sections)</label>
+        <select class="form-select" name="module_tags" id="module_tags" multiple size="6">
+          {% for mod in supported_modules %}
+            <option value="{{ mod }}">{{ mod }}</option>
+          {% endfor %}
+        </select>
+        <small class="text-muted">Hold Ctrl/Cmd to select multiple.</small>
+      </div>
     </div>
   </div>
   <button type="submit" class="btn btn-primary">Create</button>
