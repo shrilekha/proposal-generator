@@ -12,6 +12,8 @@ def login():
     if current_user.is_authenticated:
         return redirect(url_for("proposals.dashboard"))
 
+    has_admin = User.query.filter_by(role="admin").first() is not None
+
     if request.method == "POST":
         email = request.form.get("email", "").strip().lower()
         password = request.form.get("password", "")
@@ -19,12 +21,12 @@ def login():
         user = User.query.filter_by(email=email, is_active=True).first()
         if not user or not user.check_password(password):
             flash("Invalid email or password", "danger")
-            return render_template("auth/login.html")
+            return render_template("auth/login.html", has_admin=has_admin)
 
         login_user(user)
         return redirect(url_for("proposals.dashboard"))
 
-    return render_template("auth/login.html")
+    return render_template("auth/login.html", has_admin=has_admin)
 
 
 @auth_bp.route("/logout")

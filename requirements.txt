@@ -2,7 +2,8 @@ Flask==3.0.2
 Flask-Login==0.6.3
 Flask-Migrate==4.0.5
 Flask-SQLAlchemy==3.1.1
-psycopg2-binary==2.9.9
+psycopg[binary]==3.3.3
 python-dotenv==1.0.1
 docxtpl==0.16.7
+python-docx==1.1.0
 gunicorn==21.2.0

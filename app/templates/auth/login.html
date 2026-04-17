@@ -15,9 +15,18 @@
       </div>
       <button type="submit" class="btn btn-primary w-100">Login</button>
     </form>
-    <p class="mt-3 small text-muted">
-      If no admin exists yet, visit <code>/auth/init-admin</code> to create the first admin.
-    </p>
+    {% if not has_admin %}
+      <div class="mt-3 alert alert-info small">
+        No admin user exists yet. Use the
+        <a href="{{ url_for('auth.init_admin') }}">initial admin setup</a>
+        to create the first admin account.
+      </div>
+    {% else %}
+      <p class="mt-3 small text-muted">
+        Admins and presales users log in here with their email and password.
+        Admins will see additional navigation for configuring section templates and managing users.
+      </p>
+    {% endif %}
   </div>
 </div>
 {% endblock %}

@@ -3,6 +3,7 @@ from datetime import datetime
 from flask import (
     Blueprint,
     abort,
+    current_app,
     flash,
     redirect,
     render_template,
@@ -13,7 +14,16 @@ from flask import (
 from flask_login import current_user, login_required
 
 from .. import db
-from ..models import GeneratedFile, Proposal, ProposalFeature, ProposalSection
+from ..models import (
+    GeneratedFile,
+    ModuleSectionMap,
+    Proposal,
+    ProposalFeature,
+    ProposalSection,
+    ProposalVariable,
+    SectionTemplate,
+)
+from ..constants import SUPPORTED_MODULES
 from ..services.file_storage import LocalFileStorage
 from ..services.word_generator import ProposalWordGenerator
 
@@ -48,6 +58,14 @@ def dashboard():
     return render_template("proposals/dashboard.html", proposals=proposals, search=search, status=status)
 
 
+def _section_keys_for_modules(module_tags: list[str]) -> set[str]:
+    """Return section_keys that should be enabled for the given module_tags (from ModuleSectionMap)."""
+    if not module_tags:
+        return set()
+    rows = ModuleSectionMap.query.filter(ModuleSectionMap.module_tag.in_(module_tags)).all()
+    return {r.section_key for r in rows}
+
+
 @proposals_bp.route("/create", methods=["GET", "POST"])
 @login_required
 def create():
@@ -56,44 +74,66 @@ def create():
         customer_name = request.form.get("customer_name", "").strip()
         partner_name = request.form.get("partner_name", "").strip() or None
         industry = request.form.get("industry", "").strip()
+        engagement_type = request.form.get("engagement_type", "DIRECT").strip() or "DIRECT"
+        module_tags = request.form.getlist("module_tags")
 
         if not title or not customer_name:
             flash("Title and customer name are required.", "danger")
-            return render_template("proposals/create.html")
+            return render_template("proposals/create.html", supported_modules=SUPPORTED_MODULES)
 
         proposal = Proposal(
             title=title,
             customer_name=customer_name,
             partner_name=partner_name,
             industry=industry,
+            engagement_type=engagement_type,
             created_by=current_user.id,
         )
         db.session.add(proposal)
         db.session.flush()
 
-        # Initialize default sections snapshot per proposal
-        default_sections = [
-            ("intro", "Introduction"),
-            ("platform", "Platform Overview"),
-            ("scope", "Scope of Work"),
-            ("appendix", "Appendix"),
-        ]
-        for idx, (key, title) in enumerate(default_sections):
-            section = ProposalSection(
-                proposal_id=proposal.id,
-                section_key=key,
-                title=title,
-                content="",
-                order_index=idx,
-                is_enabled=True,
-            )
-            db.session.add(section)
+        allowed_section_keys = _section_keys_for_modules(module_tags) if module_tags else None
+
+        templates = SectionTemplate.query.order_by(SectionTemplate.order_index).all()
+        if templates:
+            for tmpl in templates:
+                if allowed_section_keys is not None:
+                    is_enabled = tmpl.section_key in allowed_section_keys
+                else:
+                    is_enabled = tmpl.is_default_enabled
+                section = ProposalSection(
+                    proposal_id=proposal.id,
+                    section_key=tmpl.section_key,
+                    title=tmpl.title,
+                    content=tmpl.default_content or "",
+                    order_index=tmpl.order_index,
+                    is_enabled=is_enabled,
+                )
+                db.session.add(section)
+        else:
+            default_sections = [
+                ("intro", "Introduction"),
+                ("platform", "Platform Overview"),
+                ("scope", "Scope of Work"),
+                ("appendix", "Appendix"),
+            ]
+            for idx, (key, sec_title) in enumerate(default_sections):
+                is_enabled = (key in allowed_section_keys) if allowed_section_keys else True
+                section = ProposalSection(
+                    proposal_id=proposal.id,
+                    section_key=key,
+                    title=sec_title,
+                    content="",
+                    order_index=idx,
+                    is_enabled=is_enabled,
+                )
+                db.session.add(section)
 
         db.session.commit()
         flash("Proposal created.", "success")
         return redirect(url_for("proposals.edit", proposal_id=proposal.id))
 
-    return render_template("proposals/create.html")
+    return render_template("proposals/create.html", supported_modules=SUPPORTED_MODULES)
 
 
 def _get_proposal_or_404(proposal_id: int) -> Proposal:
@@ -115,7 +155,24 @@ def edit(proposal_id):
         proposal.customer_name = request.form.get("customer_name", "").strip()
         proposal.partner_name = request.form.get("partner_name", "").strip() or None
         proposal.industry = request.form.get("industry", "").strip()
+        proposal.engagement_type = request.form.get("engagement_type", "DIRECT").strip() or "DIRECT"
         proposal.updated_at = datetime.utcnow()
+
+        # Proposal variables (consulting-style)
+        var_keys = request.form.getlist("variable_key")
+        var_values = request.form.getlist("variable_value")
+        existing_vars = {pv.variable_key: pv for pv in proposal.variables}
+        for key, value in zip(var_keys, var_values):
+            key = key.strip()
+            if not key:
+                continue
+            if key in existing_vars:
+                existing_vars[key].variable_value = value.strip()
+            else:
+                db.session.add(ProposalVariable(proposal_id=proposal.id, variable_key=key, variable_value=value.strip()))
+        for pv in proposal.variables:
+            if pv.variable_key not in [k.strip() for k in var_keys if k.strip()]:
+                db.session.delete(pv)
 
         # Sections update (enable/disable, order, content)
         section_ids = request.form.getlist("section_id")
@@ -139,11 +196,19 @@ def edit(proposal_id):
     features = ProposalFeature.query.filter_by(proposal_id=proposal.id).order_by(
         ProposalFeature.order_index
     )
+    from ..constants import STANDARD_PROPOSAL_VARIABLE_KEYS
+    variables_dict = {pv.variable_key: pv.variable_value for pv in proposal.variables}
+    all_variable_keys = list(STANDARD_PROPOSAL_VARIABLE_KEYS) + [
+        k for k in variables_dict if k not in STANDARD_PROPOSAL_VARIABLE_KEYS
+    ]
     return render_template(
         "proposals/edit.html",
         proposal=proposal,
         sections=sections,
         features=features,
+        variable_keys=all_variable_keys,
+        variables_dict=variables_dict,
+        standard_variable_keys=STANDARD_PROPOSAL_VARIABLE_KEYS,
     )
 
 
@@ -176,6 +241,7 @@ def clone(proposal_id):
         partner_name=proposal.partner_name,
         industry=proposal.industry,
         status="draft",
+        engagement_type=getattr(proposal, "engagement_type", "DIRECT"),
         created_by=current_user.id,
     )
     db.session.add(clone)
@@ -201,6 +267,13 @@ def clone(proposal_id):
             order_index=feature.order_index,
         )
         db.session.add(new_feature)
+
+    for pv in proposal.variables:
+        db.session.add(ProposalVariable(
+            proposal_id=clone.id,
+            variable_key=pv.variable_key,
+            variable_value=pv.variable_value,
+        ))
 
     db.session.commit()
     flash("Proposal cloned.", "success")
@@ -235,10 +308,7 @@ def unlock(proposal_id):
 @login_required
 def generate(proposal_id):
     proposal = _get_proposal_or_404(proposal_id)
-
-    enabled_sections = [
-        s for s in proposal.sections if s.is_enabled
-    ]
+    version_description = request.form.get("version_description", "").strip() or None
 
     generator = ProposalWordGenerator()
     storage = LocalFileStorage()
@@ -250,7 +320,18 @@ def generate(proposal_id):
     )
     next_version = (latest.version_number + 1) if latest else 1
 
-    filename, abs_path = generator.render_proposal(proposal, enabled_sections, proposal.features, next_version)
+    try:
+        filename, abs_path = generator.render_proposal(
+            proposal, next_version, version_description=version_description
+        )
+    except Exception as exc:  # pragma: no cover - defensive UX path
+        # Log the underlying error and show a friendly message instead of a 500.
+        current_app.logger.exception("Failed to generate Word document for proposal %s", proposal.id)
+        flash(
+            "Failed to generate the Word document. Please verify the master template and try again.",
+            "danger",
+        )
+        return redirect(url_for("proposals.view", proposal_id=proposal.id))
     rel_path = storage.save(abs_path)
 
     record = GeneratedFile(
@@ -258,6 +339,7 @@ def generate(proposal_id):
         filename=filename,
         file_path=rel_path,
         version_number=next_version,
+        version_description=version_description,
     )
     db.session.add(record)
     db.session.commit()

@@ -40,22 +40,57 @@
         <label class="form-label" for="industry">Industry</label>
         <input type="text" class="form-control" id="industry" name="industry" value="{{ proposal.industry or '' }}">
       </div>
+      <div class="mb-3">
+        <label class="form-label" for="engagement_type">Engagement Type</label>
+        <select class="form-select" id="engagement_type" name="engagement_type">
+          <option value="DIRECT" {% if proposal.engagement_type == 'DIRECT' %}selected{% endif %}>Direct (VuNet to customer)</option>
+          <option value="PARTNER_LED" {% if proposal.engagement_type == 'PARTNER_LED' %}selected{% endif %}>Partner-led (VuNet via partner)</option>
+        </select>
+      </div>
     </div>
   </div>
 
-  <h4 class="mb-2">Sections</h4>
+  <h4 class="mb-2">Proposal variables (for template placeholders)</h4>
+  <p class="text-muted">Use in Word template as e.g. {{ '{{ txn_volume }}' }}, {{ '{{ commitment_tenure }}' }}.</p>
+  <div class="table-responsive mb-4">
+    <table class="table table-sm">
+      <thead><tr><th>Key</th><th>Value</th></tr></thead>
+      <tbody>
+        {% for key in variable_keys %}
+          <tr>
+            <td><input type="text" class="form-control form-control-sm" name="variable_key" value="{{ key }}" {% if key in standard_variable_keys %}readonly{% endif %}></td>
+            <td><input type="text" class="form-control form-control-sm" name="variable_value" value="{{ variables_dict.get(key, '') }}" placeholder="{{ key }}"></td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="d-flex justify-content-between align-items-center mb-2">
+    <h4 class="mb-0">Sections</h4>
+    <div>
+      <button type="button" class="btn btn-sm btn-outline-secondary me-2" id="collapse-all-sections-btn">Collapse all</button>
+      <button type="button" class="btn btn-sm btn-outline-secondary" id="expand-all-sections-btn">Expand all</button>
+    </div>
+  </div>
   <p class="text-muted">Drag and drop to reorder sections. Toggle to enable/disable.</p>
   <div id="sections-list">
     {% for section in sections %}
       <div class="card mb-2" data-section-id="{{ section.id }}">
-        <div class="card-body">
-          <div class="d-flex justify-content-between align-items-center mb-2">
-            <div class="form-check form-switch">
-              <input class="form-check-input" type="checkbox" id="section_enabled_{{ section.id }}" name="section_enabled_{{ section.id }}" {% if section.is_enabled %}checked{% endif %}>
-              <label class="form-check-label" for="section_enabled_{{ section.id }}">{{ section.section_key }}</label>
-            </div>
-            <span class="text-muted small">Drag handle</span>
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <div class="form-check form-switch mb-0">
+            <input class="form-check-input" type="checkbox" id="section_enabled_{{ section.id }}" name="section_enabled_{{ section.id }}" {% if section.is_enabled %}checked{% endif %}>
+            <label class="form-check-label" for="section_enabled_{{ section.id }}">{{ section.section_key }}</label>
           </div>
+          <div>
+            <span class="text-muted small me-2">Drag handle</span>
+            <button class="btn btn-sm btn-link text-decoration-none toggle-section" type="button"
+                    data-bs-toggle="collapse" data-bs-target="#section-body-{{ section.id }}">
+              Toggle
+            </button>
+          </div>
+        </div>
+        <div class="card-body collapse show" id="section-body-{{ section.id }}">
           <input type="hidden" name="section_id" value="{{ section.id }}">
           <div class="mb-2">
             <label class="form-label">Section Title</label>
@@ -82,11 +117,31 @@
     const container = document.getElementById("sections-list");
     new Sortable(container, {
       animation: 150,
-      handle: ".card-body",
+      handle: ".card-header",
       onEnd: function () {
         // Order is derived from DOM position when form is submitted (section_id fields)
       }
     });
+
+    function setAll(expand) {
+      document.querySelectorAll("#sections-list .card-body.collapse").forEach(function (el) {
+        const collapse = bootstrap.Collapse.getOrCreateInstance(el, {toggle: false});
+        if (expand) {
+          collapse.show();
+        } else {
+          collapse.hide();
+        }
+      });
+    }
+
+    const collapseAllBtn = document.getElementById("collapse-all-sections-btn");
+    const expandAllBtn = document.getElementById("expand-all-sections-btn");
+    if (collapseAllBtn) {
+      collapseAllBtn.addEventListener("click", function () { setAll(false); });
+    }
+    if (expandAllBtn) {
+      expandAllBtn.addEventListener("click", function () { setAll(true); });
+    }
   });
 </script>
 {% endblock %}
