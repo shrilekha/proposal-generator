@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+{% block title %}Section Templates{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h2 class="mb-0">Section Templates</h2>
+  <div>
+    <button type="button" class="btn btn-sm btn-outline-secondary me-2" id="collapse-all-btn">Collapse all</button>
+    <button type="button" class="btn btn-sm btn-outline-secondary" id="expand-all-btn">Expand all</button>
+  </div>
+</div>
+<p class="text-muted">
+  These default sections are copied into each new proposal as a starting point.
+  You can include placeholders like <code>{{ '{{ customer_name }}' }}</code> or <code>{{ '{{ partner_name }}' }}</code> which will be filled in the generated Word document via the master template.
+</p>
+
+<form method="post">
+  <div class="mb-3" id="section-templates-list">
+    {% for t in templates %}
+      <div class="card mb-3">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <div>
+            <strong>{{ t.title }}</strong>
+            <span class="text-muted small ms-2">({{ t.section_key }})</span>
+          </div>
+          <button class="btn btn-sm btn-link text-decoration-none toggle-section" type="button"
+                  data-bs-toggle="collapse" data-bs-target="#template-body-{{ t.id }}">
+            Toggle
+          </button>
+        </div>
+        <div class="card-body collapse show" id="template-body-{{ t.id }}">
+          <input type="hidden" name="template_id" value="{{ t.id }}">
+          <div class="row mb-2">
+            <div class="col-md-3">
+              <label class="form-label">Section Key</label>
+              <input type="text" class="form-control" name="section_key_{{ t.id }}" value="{{ t.section_key }}" required>
+            </div>
+            <div class="col-md-5">
+              <label class="form-label">Title</label>
+              <input type="text" class="form-control" name="title_{{ t.id }}" value="{{ t.title }}" required>
+            </div>
+            <div class="col-md-2 d-flex align-items-end">
+              <div class="form-check form-switch">
+                <input class="form-check-input" type="checkbox" id="enabled_{{ t.id }}" name="enabled_{{ t.id }}" {% if t.is_default_enabled %}checked{% endif %}>
+                <label class="form-check-label" for="enabled_{{ t.id }}">Enabled by default</label>
+              </div>
+            </div>
+          </div>
+          <div class="mb-2">
+            <label class="form-label">Default Content</label>
+            <textarea id="content_{{ t.id }}" name="content_{{ t.id }}" class="d-none">{{ t.default_content|safe }}</textarea>
+            <div data-quill-editor data-target-textarea-id="content_{{ t.id }}" style="height: 200px;"></div>
+          </div>
+        </div>
+      </div>
+    {% else %}
+      <p class="text-muted">No templates defined yet. Use the form below to create your first one.</p>
+    {% endfor %}
+  </div>
+
+  <h4 class="mt-4">Add New Section Template</h4>
+  <div class="card mb-3">
+    <div class="card-body">
+      <div class="row mb-2">
+        <div class="col-md-3">
+          <label class="form-label">Section Key</label>
+          <input type="text" class="form-control" name="new_section_key" placeholder="e.g. introduction">
+        </div>
+        <div class="col-md-5">
+          <label class="form-label">Title</label>
+          <input type="text" class="form-control" name="new_title" placeholder="e.g. Introduction">
+        </div>
+      </div>
+      <div class="mb-2">
+        <label class="form-label">Default Content</label>
+        <textarea id="new_content" name="new_content" class="d-none"></textarea>
+        <div data-quill-editor data-target-textarea-id="new_content" style="height: 200px;"></div>
+      </div>
+    </div>
+  </div>
+
+  <button type="submit" class="btn btn-primary">Save Templates</button>
+</form>
+<script>
+  document.addEventListener("DOMContentLoaded", function () {
+    const collapseAllBtn = document.getElementById("collapse-all-btn");
+    const expandAllBtn = document.getElementById("expand-all-btn");
+
+    function setAllSections(expand) {
+      document.querySelectorAll("#section-templates-list .card-body.collapse").forEach(function (el) {
+        const collapse = bootstrap.Collapse.getOrCreateInstance(el, {toggle: false});
+        if (expand) {
+          collapse.show();
+        } else {
+          collapse.hide();
+        }
+      });
+    }
+
+    if (collapseAllBtn) {
+      collapseAllBtn.addEventListener("click", function () {
+        setAllSections(false);
+      });
+    }
+    if (expandAllBtn) {
+      expandAllBtn.addEventListener("click", function () {
+        setAllSections(true);
+      });
+    }
+  });
+</script>
+{% endblock %}
+
